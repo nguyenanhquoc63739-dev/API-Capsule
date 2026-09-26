@@ -1,15 +1,12 @@
-# AI Capsule — Assignment 3
+# AI Capsule
 
-AI Capsule is a small React and Express application for saving private AI prompts. Users sign in with GitHub, then create, view, edit and delete their own prompt records.
+AI Capsule is a small project for saving private AI prompts. Users can sign in with a GitHub account and create, view, edit and delete prompt records.
 
 ## Deployment
 
 - Public URL: https://api-capsule.onrender.com
 - Platform: Render Free Web Service
 - Runtime: Node.js 24
-- Health check: https://api-capsule.onrender.com/api/health
-
-The deployed application has been tested with GitHub login and CRUD operations.
 
 ## Run locally
 
