@@ -1,169 +1,139 @@
 # AI Capsule — Assignment 3
 
-A basic React + Express application for saving private AI prompt records. It uses SQLite, GitHub OAuth and an Express-issued JWT in a Secure HttpOnly cookie named `token`.
+AI Capsule is a small React and Express application for saving private AI prompts. Users sign in with GitHub, then create, view, edit and delete their own prompt records.
 
-**Deployment status: not deployed yet.**
-- Public URL: **TODO: insert your actual HTTPS URL after deployment.**
-- Target cloud platform: Render Free Web Service.
-- Real GitHub login and public-cloud tests: **TODO after configuring your OAuth app.**
+## Deployment
 
-## 1. Install and run
+- Public URL: https://api-capsule.onrender.com
+- Platform: Render Free Web Service
+- Runtime: Node.js 24
+- Health check: https://api-capsule.onrender.com/api/health
 
-Use Node.js **24 LTS** and npm. SQLite is built into this Node version, so no database server, ORM or separate SQLite installation is needed. Node 24 may print an experimental SQLite warning; it does not prevent the app from running.
+The deployed application has been tested with GitHub login and CRUD operations.
 
-From the project folder:
+## Run locally
+
+Requirements: Node.js 24 and npm.
+
+Install and build:
 
 ```sh
 npm install
-```
-
-Create a random secret locally:
-
-```sh
-node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
-```
-
-Paste that value into `JWT_SECRET` in your private `.env`. Never paste it into the README, source files or a chat. Configure GitHub as described below, then:
-
-```sh
 npm run build
+```
+
+Create a private `.env` file in the project root:
+
+```env
+PORT=3000
+APP_URL=http://localhost:3000
+JWT_SECRET=your_random_secret_at_least_32_characters
+GITHUB_CLIENT_ID=your_local_github_client_id
+GITHUB_CLIENT_SECRET=your_local_github_client_secret
+DATABASE_PATH=./data/capsules.sqlite
+NODE_ENV=development
+```
+
+Start the application:
+
+```sh
 npm start
 ```
 
-Open `http://localhost:3000` in Chrome or Firefox. The Express server serves both the built React frontend and API. There is no separate frontend server. After changing React files, run `npm run build` and refresh. `npm run dev` restarts the backend when backend files change; it does not rebuild React.
+Open http://localhost:3000. Never commit `.env` or secret values.
 
-Cookies always retain `Secure`, including during local development. Chrome/Firefox normally allow Secure cookies on `http://localhost`; use exactly `localhost`, not a LAN IP. If your browser blocks these cookies, test using the deployed HTTPS application. Do not remove Secure to fix deployment login.
+## GitHub OAuth and JWT
 
-## 2. GitHub OAuth setup
+The application uses GitHub OAuth. After successful login, the Express server creates its own JWT using the GitHub user ID. The JWT is stored in a `Secure`, `HttpOnly` cookie named `token` and is verified by the server on protected requests.
 
-Go to GitHub Settings → Developer settings → OAuth Apps → New OAuth App.
+Local OAuth callback:
 
-For local development:
-- Application name: AI Capsule Local
-- Homepage URL: `http://localhost:3000`
-- Authorization callback URL: `http://localhost:3000/api/auth/github/callback`
+```text
+http://localhost:3000/api/auth/github/callback
+```
 
-Copy the client ID and generated client secret into the corresponding `.env` variables. Restart the server. Use a separate OAuth app for deployment to avoid repeatedly changing the local callback.
+Deployment OAuth callback:
 
-The flow follows the Week 5 lab's authorization-code approach: redirect to GitHub, check random state on callback, exchange the code on the server, then fetch the GitHub profile. The implementation is written for this assignment. Unlike the lab's Express session/PostgreSQL demo, this project uses the assignment-required JWT and a single SQLite table. It does not request email access because only the GitHub ID and login are needed.
+```text
+https://api-capsule.onrender.com/api/auth/github/callback
+```
 
-Express signs an HS256 application JWT with the GitHub ID as `sub`. The cookie lasts two hours and has `Secure`, `HttpOnly`, `SameSite=Lax` and `Path=/`. The GitHub access token is used only on the server during login; it is not the application JWT and is not stored. JavaScript never reads the JWT or stores it in localStorage. The random OAuth state is stored in a signed ten-minute HttpOnly cookie.
+The GitHub access token is used only during login and is not stored. The application does not use `localStorage` for authentication.
 
-`requireAuth` verifies the JWT signature, expiry, issuer, audience, algorithm and user ID. It runs before all capsule routes. Expired sessions require login again. Logout clears the cookie; already copied JWTs remain valid until expiry (there is no revocation database).
-
-## 3. Environment variables
-
-| Name | Purpose |
-| --- | --- |
-| `PORT` | HTTP port; local default 3000, supplied by Render in cloud |
-| `APP_URL` | Public origin, no path or trailing slash; must be HTTPS in production |
-| `JWT_SECRET` | Random secret of at least 32 characters; also signs OAuth state cookies |
-| `GITHUB_CLIENT_ID` | OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | OAuth app client secret |
-| `DATABASE_PATH` | SQLite path; default `./data/capsules.sqlite` |
-| `NODE_ENV` | `development` locally, `production` on Render |
-| `NODE_VERSION` | Render runtime version: `24` |
-
-`.env`, database files and dependencies are excluded by `.gitignore`. No frontend environment variable contains a secret.
-
-## 4. Pages and API
+## Pages and API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/` | Public introduction |
+| GET | `/` | Public home page |
 | GET | `/login` | GitHub login page |
-| GET | `/dashboard` | Protected React dashboard; unauthenticated users redirected to login |
-| GET | `/api/health` | Public `{ "status": "ok" }` |
-| GET | `/api/capsules` | List authenticated user's capsules |
-| POST | `/api/capsules` | Create a capsule; returns 201 and the record |
-| PUT | `/api/capsules/:id` | Replace editable fields in an owned capsule; returns the record |
-| DELETE | `/api/capsules/:id` | Delete an owned capsule; returns 204 |
-| GET | `/api/auth/github/start` | Start GitHub OAuth |
-| GET | `/api/auth/github/callback` | Verify state, complete OAuth and issue JWT |
-| GET | `/api/auth/me` | Return verified user ID and login |
-| POST | `/api/auth/logout` | Clear session cookie |
+| GET | `/dashboard` | Protected dashboard |
+| GET | `/api/health` | Public health check |
+| GET | `/api/capsules` | Read the user's capsules |
+| POST | `/api/capsules` | Create a capsule |
+| PUT | `/api/capsules/:id` | Update an owned capsule |
+| DELETE | `/api/capsules/:id` | Delete an owned capsule |
 
-React uses `fetch` with relative `/api/...` URLs and same-origin cookies. No CORS library is needed. Missing/invalid JWTs return 401. Updating or deleting a nonexistent or other user's record returns 404. Invalid field values return 400. Cross-origin browser writes return 403.
+The React frontend calls the Express API using relative `/api/...` URLs. The API gets `user_id` from the verified JWT, not from the browser. Database queries restrict read, update and delete operations to the authenticated user.
 
-POST and PUT accept `project_name`, `prompt_title`, `prompt_version`, `prompt_text`, `response_summary`, `category`, `usefulness`, `reviewed`, `improved`, `screenshot_url`, and `notes`. Project, title and prompt text are required. Reviewed/improved accept booleans or 0/1. The browser does not send `user_id`; the server rejects it if supplied. IDs and timestamps are generated by SQLite. Screenshot evidence is a URL field, not an upload.
+## Database
 
-## 5. Database and ownership
+SQLite is created automatically from `server/schema.sql`. The database stores the prompt, project name, title, version, response summary, category, usefulness, review status, improvement status, screenshot URL, notes and owner ID.
 
-`server/db.js` creates the directory and opens SQLite; `server/schema.sql` initializes the assignment's capsule table automatically. No manual migration command is needed. All input values use parameterized SQL.
+Render's free filesystem is temporary, so SQLite data may be lost after a restart, redeployment or service spin-down. This is a limitation of the free deployment.
 
-CREATE sets `user_id` from `req.user.id`, obtained from the verified JWT. SELECT uses `WHERE user_id = ?`; UPDATE and DELETE use both `id = ? AND user_id = ?`. A record ID alone never authorizes a change.
+## Environment variables
 
-Local data persists in `data/capsules.sqlite` between application restarts. **Render Free uses an ephemeral filesystem: SQLite data is lost on restart, redeployment or service spin-down.** The table is recreated automatically, and users can create new records. This limitation is accepted in the assignment guidance and should be explained in the video. This project intentionally does not add paid storage or a second database. Check current free-tier conditions before deploying.
+The application uses these environment variables:
 
-## 6. Deploy to Render
-
-1. Upload this project's source to your GitHub repository, keeping `package.json` at the repository root. Include `package-lock.json`; exclude `.env`, `node_modules`, `client/dist`, and local database files.
-2. In Render choose **New → Web Service**, connect the repository and select the **Free** instance.
-3. Use Node as the runtime, build command `npm ci --include=dev && npm run build`, start command `npm start`, and health check `/api/health`.
-4. Set `NODE_VERSION=24`, `NODE_ENV=production`, `DATABASE_PATH=./data/capsules.sqlite`, a freshly generated `JWT_SECRET`, and `APP_URL=https://YOUR-APP.onrender.com` using the real URL assigned to your service. Render supplies `PORT`.
-5. Create the deployment GitHub OAuth App. Homepage must match `APP_URL`; callback must be `https://YOUR-APP.onrender.com/api/auth/github/callback`.
-6. Add its `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in Render's environment settings. Deploy/redeploy after changing settings. Do not include secret values in screenshots.
-7. Visit the public URL and `/api/health`. Run the checks below, then log in and demonstrate CRUD. Test with a second GitHub account/browser profile to confirm records are separate.
-8. Replace the TODO deployment fields in this README with your actual results. Keep the service available until marking finishes.
-
-`render.yaml` is included as an alternative Render Blueprint configuration with the same settings. Manual Web Service creation is sufficient; do not create both.
-
-Troubleshooting: a login loop usually means APP_URL/callback mismatch, blocked cookies or an old JWT after changing the secret. Use HTTPS in cloud, check the exact callback, clear old cookies and log in again. A blank frontend usually means the build command was omitted. An empty database after Render restarts is the documented ephemeral-storage limitation.
-
-## 7. Required cURL evidence
-
-```sh
-npm run build
+```text
+PORT
+APP_URL
+JWT_SECRET
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+DATABASE_PATH
+NODE_ENV
+NODE_VERSION
 ```
 
-Run these commands against your deployed application:
+Secret values are configured in Render and are not stored in this repository.
+
+## Required cURL evidence
+
+Health check:
 
 ```sh
-curl -i https://YOUR-APP.onrender.com/api/health
-curl -i https://YOUR-APP.onrender.com/api/capsules
-curl -i -H "Cookie: token=fake-token-123" https://YOUR-APP.onrender.com/api/capsules
+curl -i https://api-capsule.onrender.com/api/health
 ```
 
-| Check | Expected | Actual deployed result |
-| --- | --- | --- |
-| Health | 200 and `{ "status": "ok" }` | TODO after deployment |
-| No JWT | 401 Unauthorized | TODO after deployment |
-| Fake JWT | 401 Unauthorized | TODO after deployment |
-| Real GitHub login and CRUD | Successful login, create, read, update, delete | TODO after deployment |
-| Two real GitHub users | Each sees only their own records | TODO after deployment |
+Expected result: `200` and `{ "status": "ok" }`.
 
-Do not replace these TODOs with expected results until you have actually run the checks. Never display or submit your real JWT.
+Without authentication:
 
-## 8. AI-assisted development
+```sh
+curl -i https://api-capsule.onrender.com/api/capsules
+```
 
-Tool used: OpenAI Codex generated this initial project, tests and documentation from the assignment specification. The student must review the code and be able to explain it.
+Expected result: `401 Unauthorized`.
 
-Problem found and corrected in AI-generated code: the first generated dashboard guard wrapped a fake response object around the API authentication middleware to turn 401 into a redirect. This was unnecessarily confusing and fragile. It was replaced with an explicit `redirectToLogin` option in `requireAuth`, sharing the same JWT verification while returning a redirect for the page and 401 for APIs.
+With an invalid JWT:
 
-Verification: local browser testing confirmed GitHub authorization, authenticated CRUD, and logout. Real deployed HTTPS login and public cURL evidence must still be checked after account configuration.
+```sh
+curl -i -H "Cookie: token=fake-token-123" https://api-capsule.onrender.com/api/capsules
+```
 
-Decision to understand: React and Express share one origin. The browser sends the HttpOnly cookie automatically, so the frontend never handles a JWT and no cross-origin cookie configuration is required. SQLite uses the assignment's one-table schema to keep the project small.
+Expected result: `401 Unauthorized`.
 
-Before submission, add your own honest account of any additional problems you encountered and how you fixed them. Do not claim to have personally performed tests you have not run.
+## AI-assisted development
 
-## 9. Submission and demonstration
+OpenAI Codex was used to help create and debug the application. I reviewed the generated code and tested the deployed GitHub login, JWT-protected API and CRUD workflow.
 
-Submit a source-code ZIP and a **3–5 minute MP4 with working audio** directly to LMS. Exclude dependencies, builds, databases and secrets from the ZIP; include the lockfile, schema, source, README and configuration example.
+One problem found and corrected was the local OAuth cookie configuration. Secure cookies were initially used on local HTTP, which caused the OAuth state cookie not to return in Safari. The application now uses Secure cookies for HTTPS deployment and allows local HTTP login during development.
 
-Suggested video order:
-1. Public HTTPS homepage and `/api/health` (about 30 seconds).
-2. Both required cURL checks returning 401 (30 seconds).
-3. GitHub login and dashboard (30 seconds).
-4. Create, read, update and delete a capsule (90 seconds).
-5. Cloud settings and environment variable names, with secret values hidden; explain SQLite and one limitation (45 seconds).
+One implementation decision was to serve the React frontend and Express API from the same application and origin. This avoids separate CORS and cookie configuration. SQLite was chosen because it is sufficient for the required single-table prompt library.
 
-This repository prepares the code, but the public deployment, actual cURL results and recorded demonstration must be completed before submission.
+## Submission
 
-## References
+The source-code ZIP should include the source files, `package.json`, `package-lock.json`, `README.md`, `render.yaml` and database schema. Exclude `.env`, `node_modules`, `client/dist`, `data` and SQLite files.
 
-- Assignment 3 — AI Capsule, Dr Shuo Ding, Semester 2 2026 (primary requirements and capsule schema).
-- [Lecturer's Week 5 OAuth example](https://github.com/CSE3CWA-5006/CSE3CWA-5006-Week-05/tree/main/github_oauth_demo) — conceptual flow reference; session/database differences explained above.
-- [Lecturer's deployment materials](https://github.com/CSE3CWA-5006/CSE3CWA-5006-Week-01).
-- [GitHub OAuth web application flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
-- [jsonwebtoken documentation](https://github.com/auth0/node-jsonwebtoken).
-- [Render Express deployment](https://render.com/docs/deploy-node-express-app) and [free-tier storage limitations](https://render.com/docs/free).
+The video should show the public URL, health check, both unauthenticated cURL checks, GitHub login, complete CRUD, Render environment variable names without secret values, and the SQLite storage limitation.
