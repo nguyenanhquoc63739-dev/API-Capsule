@@ -1,0 +1,15 @@
+body { font-family: Arial, sans-serif; color: #222; background: white; line-height: 1.5; margin: 0; }
+main { max-width: 760px; margin: 24px auto; padding: 0 16px 32px; }
+header { border-bottom: 1px solid #ccc; padding-bottom: 12px; }
+h1 { margin-bottom: 8px; }
+a { color: #174c91; }
+label { display: block; margin: 12px 0; }
+input:not([type=checkbox]), textarea, select { display: block; width: 100%; box-sizing: border-box; padding: 7px; font: inherit; }
+input[type=checkbox] { margin-left: 12px; }
+button { font: inherit; padding: 5px 10px; margin-right: 8px; cursor: pointer; }
+button:disabled { cursor: wait; }
+fieldset { border: 1px solid #bbb; padding: 12px; min-width: 0; }
+article { border-top: 1px solid #bbb; padding: 12px 0; }
+h4 { font-size: 1.1rem; margin: 8px 0; }
+dt { font-weight: bold; } dd { margin: 0 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+[role=alert] { color: #a00000; } [role=status] { color: #155e25; }

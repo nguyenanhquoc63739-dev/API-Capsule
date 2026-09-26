@@ -1,0 +1,14 @@
+{
+  "name": "ai-capsule", "version": "1.0.0", "private": true, "type": "module",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "build": "vite build --config client/vite.config.js",
+    "start": "node --env-file-if-exists=.env server/server.js",
+    "dev": "node --watch --env-file-if-exists=.env server/server.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7", "express": "^5.1.0", "jsonwebtoken": "^9.0.2",
+    "react": "^19.1.0", "react-dom": "^19.1.0"
+  },
+  "devDependencies": { "vite": "^7.0.0" }
+}
